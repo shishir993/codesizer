@@ -1,0 +1,33 @@
+** Determine size (of code) of functions in a EXE/DLL by querying PDB files via the DIA SDK **
+
+CodeSizer is a Win32 program written in C++.
+It uses the DIA SDK (http://msdn.microsoft.com/en-us/library/x93ctkx8%28v=vs.100%29.aspx)
+provided by Microsoft. This SDK provides a layer of abstraction in parsing PDB files.
+
+CodeSizer uses the DIA SDK to access a PDB file in order to determine the code size of functions.
+By code size, I mean the size in bytes of the machine code of a function. This does not include
+the stack/heap space used by the function, only the space occupied in the .text section.
+
+Usage:
+CodeSizer.exe /f <path_to_PDB/EXE/DLL> [/spath <searchpath_to_PDB>]
+              [/a | /s <comma_sep_function_names> | /m <module_name> | /r <substring_to_match>]
+Options:
+/f        Specify the PDB/EXE/DLL path to use
+/spath    When specifying EXE/DLL, if corresponding PDB file isn't in the
+          same folder as the EXE/DLL, this is the search path for PDB.
+
+/a        Display all functions' size
+/s        Comma separated list of function names whose sizes must be displayed
+/r        Display functions that have the specified string as a sub-string.
+          This is case-sensitive.
+/m        (Not supported yet) Display functions that are in the specified module/library
+
+/a, /s, /r and /m can all be specified at the same time.
+If none of /a,/s,/r,/m is specified, it defaults to /a.
+
+Author:
+Shishir Bhat - http://www.shishirbhat.com
+[
+Github   - https://github.com/shishir993/
+LinkedIn - http://www.linkedin.com/pub/shishir-bhat/26/405/560/
+]

@@ -1,0 +1,10 @@
+*.opensdf
+*.sdf
+*.suo
+*.user
+ipch/*
+ipch
+Debug/*
+Debug
+Release/*
+Release
