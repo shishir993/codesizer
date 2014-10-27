@@ -30,6 +30,17 @@ private:
 
     HRESULT _GetTable(_In_ REFIID iid, _Out_ void** ppUnk);
     HRESULT _GetAllFunctions(_Out_ IDiaEnumSymbols **ppFunctions);
+    HRESULT _GetAllSymbols(_Out_ IDiaEnumSymbols **ppAllSymbols);
+    HRESULT _GetAllPublicSymbols(_Out_ IDiaEnumSymbols **ppAllSymbols);
+    HRESULT _AddFuncToList(
+        _In_ CFunctionSizes & funcList, 
+        _In_ IDiaSymbol *pSymbol, 
+        _In_ wstring const & funcNameToMatch);
+
+    HRESULT _AddFuncToList(
+        _In_ CFunctionSizes & funcList, 
+        _In_ IDiaSymbol *pSymbol, 
+        _In_ set<wstring> const & aszFuncNamesToMatch);
 
 public:
     CDebugInfoWalker(_In_ IDiaDataSource* pDiaSource, _In_ CArgProcessor* pArgProcessor) :
@@ -43,15 +54,15 @@ public:
     HRESULT EnumerateSymbols();
         
     // Display only functions within the global scope
-    HRESULT _EnumerateFunctions();
+    HRESULT _EnumerateFunctions(bool fPublicOnly = false);
 
     // Display all functions in global scope whose name have the specified sub string
-    HRESULT _EnumerateFunctions(_In_ wstring const & szFuncNameSubString);
+    HRESULT _EnumerateFunctions(_In_ wstring const & szFuncNameSubString, bool fPublicOnly = false);
 
     // Display only functions within the specified library/object
     //HRESULT _EnumerateFunctions(_In_ wstring szLibObjName);
 
     // Display only specified functions
-    HRESULT _EnumerateFunctions(_In_ set<wstring> const & aszFunctions);
+    HRESULT _EnumerateFunctions(_In_ set<wstring> const & aszFunctions, bool fPublicOnly = false);
     
 };

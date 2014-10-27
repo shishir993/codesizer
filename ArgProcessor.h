@@ -15,11 +15,12 @@
 
 #include "stdafx.h"
 
-#define OType_None              0x00
-#define OType_FuncAll           0x01
-#define OType_FuncSpecific      0x02
-#define OType_FuncInModule      0x40
-#define OType_FuncSubString     0x80
+#define OType_None              0x0000
+#define OType_FuncAll           0x0001
+#define OType_FuncSpecific      0x0002
+#define OType_FuncInModule      0x0040
+#define OType_FuncSubString     0x0080
+#define OType_FuncPublic        0x0100
 
 using namespace std;
 
@@ -92,6 +93,11 @@ public:
     bool isOutputFuncAll() const
     {
         return (_outType & OType_FuncAll) ? true : false;
+    }
+
+    bool isOutputFuncPublic() const
+    {
+        return (_outType & OType_FuncPublic) ? true : false;
     }
 
     bool isOutputFuncSubString() const

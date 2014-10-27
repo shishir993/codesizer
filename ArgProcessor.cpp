@@ -79,6 +79,10 @@ HRESULT CArgProcessor::ProcessArgs(_In_ int argc, _In_ WCHAR *argv[])
                     hr = E_INVALIDARG;
                 }
             }
+            else if(_wcsicmp(argv[i], L"/pfunc") == 0)
+            {
+                _outType |= OType_FuncPublic;
+            }
             else if(_wcsicmp(argv[i], L"/a") == 0)
             {
                 _outType |= OType_FuncAll;
@@ -97,12 +101,6 @@ HRESULT CArgProcessor::ProcessArgs(_In_ int argc, _In_ WCHAR *argv[])
 
     _nArgs = argc;
     _invokedProg = argv[0];
-
-    // By default, we output all functions' size
-    if(SUCCEEDED(hr) && (_outType == OType_None))
-    {
-        _outType = OType_FuncAll;
-    }
 
     return hr;
 }
@@ -170,7 +168,7 @@ void CArgProcessor::PrintUsage() const
 
     wprintf(
 L"\nUsage:\n%s /f <path_to_PDB/EXE/DLL> [/spath <searchpath_to_PDB>] \n"
-L"              [/a | /s <comma_sep_function_names> | /m <module_name> | /r <substring_to_match>]\n", _invokedProg.c_str());
+L"              [/a | /pfunc | /s <comma_sep_function_names> | /m <module_name> | /r <substring_to_match>]\n", _invokedProg.c_str());
 
     wprintf(
 L"Options:\n"
@@ -178,13 +176,14 @@ L"/f        Specify the PDB/EXE/DLL path to use\n"
 L"/spath    When specifying EXE/DLL, if corresponding PDB file isn't in the\n"
 L"          same folder as the EXE/DLL, this is the search path for PDB.\n\n"
 L"/a        Display all functions' size\n"
+L"/pfunc    Display only functions that are public symbols.\n"
+L"          Use this for binaries that don't expose internal functions (ntdll.dll for eg.).\n"
 L"/s        Comma separated list of function names whose sizes must be displayed\n"
 L"/r        Display functions that have the specified string as a sub-string. \n"
 L"          This is case-sensitive.\n"
 L"/m        (Not supported yet) Display functions that are in the specified module/library\n\n"
 
-L"/a, /s, /r and /m can all be specified at the same time.\n"
-L"If none of /a,/s,/r,/m is specified, it defaults to /a.\n");
+L"/a, /s, /r and /m can all be specified at the same time.\n");
 
 }
 

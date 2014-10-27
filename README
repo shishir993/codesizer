@@ -10,20 +10,21 @@ the stack/heap space used by the function, only the space occupied in the .text 
 
 Usage:
 CodeSizer.exe /f <path_to_PDB/EXE/DLL> [/spath <searchpath_to_PDB>]
-              [/a | /s <comma_sep_function_names> | /m <module_name> | /r <substring_to_match>]
+              [/a | /pfunc | /s <comma_sep_function_names> | /m <module_name> | /r <substring_to_match>]
 Options:
 /f        Specify the PDB/EXE/DLL path to use
 /spath    When specifying EXE/DLL, if corresponding PDB file isn't in the
           same folder as the EXE/DLL, this is the search path for PDB.
 
 /a        Display all functions' size
+/pfunc    Display only functions that are public symbols.
+          Use this for binaries that don't expose internal functions (ntdll.dll for eg.).
 /s        Comma separated list of function names whose sizes must be displayed
 /r        Display functions that have the specified string as a sub-string.
           This is case-sensitive.
-/m        (Not supported yet) Display functions that are in the specified module/library
+/m        (Not supported yet) Display functions that are in the specified module/library.
 
 /a, /s, /r and /m can all be specified at the same time.
-If none of /a,/s,/r,/m is specified, it defaults to /a.
 
 Author:
 Shishir Bhat - http://www.shishirbhat.com

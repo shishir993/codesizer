@@ -23,22 +23,24 @@ HRESULT CDebugInfoWalker::OpenSessionAndExecute()
 
     if(SUCCEEDED(hr))
     {
+        bool isPublicOnly = _pArgProcessor->isOutputFuncPublic();
+
         // Has user asked for all functions' size?
         if(_pArgProcessor->isOutputFuncAll())
         {
-            _EnumerateFunctions();
+            _EnumerateFunctions(isPublicOnly);
         }
 
         // Has user asked for sizes of specific functions?
         if(_pArgProcessor->isOutputFuncSpecific())
         {
-            _EnumerateFunctions(_pArgProcessor->getSpecifiedFunctions());
+            _EnumerateFunctions(_pArgProcessor->getSpecifiedFunctions(), isPublicOnly);
         }
 
         // Has user asked for functions whose name have the specified sub string?
         if(_pArgProcessor->isOutputFuncSubString())
         {
-            _EnumerateFunctions(_pArgProcessor->getFuncSubString());
+            _EnumerateFunctions(_pArgProcessor->getFuncSubString(), isPublicOnly);
         }
 
         // Has user asked for sizes of functions in specific module?
@@ -62,10 +64,8 @@ HRESULT CDebugInfoWalker::OpenSessionAndExecute()
 
 HRESULT CDebugInfoWalker::EnumerateSymbols()
 {
-    HRESULT hr = E_NOTIMPL;
-
     //CComPtr<IDiaEnumSymbols> spEnumSymbols;
-    //hr = _GetTable(__uuidof(IDiaEnumSymbols), (void**)&spEnumSymbols);
+    //HRESULT hr = _GetAllSymbols(&spEnumSymbols);
     //if(SUCCEEDED(hr))
     //{
     //    wprintf(L"Symbols:: \n");
@@ -73,45 +73,51 @@ HRESULT CDebugInfoWalker::EnumerateSymbols()
     //    CComPtr<IDiaSymbol> spDiaSymbol;
     //    while(SUCCEEDED(spEnumSymbols->Next(1, &spDiaSymbol, &celt)) && (celt == 1))
     //    {
-    //        BOOL isFunction;
-    //        if(SUCCEEDED(spDiaSymbol->get_function(&isFunction)) && isFunction)
+    //        BSTR symName;
+    //        if(spDiaSymbol->get_name(&symName) == S_OK)
     //        {
-    //            BSTR symName;
-    //            if(SUCCEEDED(spDiaSymbol->get_undecoratedName(&symName)))
-    //            {
-    //                wprintf(L"%s\n", symName);
-    //            }
+    //            wprintf(L"%s\n", symName);
+    //            SysFreeString(symName);
     //        }
-    //        
-    //        spDiaSymbol = NULL;
+    //        spDiaSymbol.Release();
     //    }
     //}
     
-    return hr;
+    return E_NOTIMPL;
 }
 
 #pragma region PrivateFunctions
 
-HRESULT CDebugInfoWalker::_EnumerateFunctions()
+HRESULT CDebugInfoWalker::_EnumerateFunctions(bool fPublicOnly)
 {
     CFunctionSizes funcSizes;
 
+    wprintf(L"%s ::\n", fPublicOnly ? L"Public Functions" : L"Functions");
+
     CComPtr<IDiaEnumSymbols> spFuncs;
-    HRESULT hr = _GetAllFunctions(&spFuncs);
+
+    HRESULT hr = fPublicOnly ? _GetAllPublicSymbols(&spFuncs) : _GetAllFunctions(&spFuncs);
     if(SUCCEEDED(hr))
     {
         ULONG celt;
         CComPtr<IDiaSymbol> spFunc;
         while(SUCCEEDED(spFuncs->Next(1, &spFunc, &celt)) && (celt == 1))
         {
-            BSTR symName;
-            ULONGLONG ullSize;
-            if(SUCCEEDED(spFunc->get_name(&symName)) && SUCCEEDED(spFunc->get_length(&ullSize)))
+            // If we are to display only public functions, then check if this
+            // is a function or not.
+            if(fPublicOnly)
             {
-                funcSizes.addData(symName, ullSize);
+                BOOL isFunc;
+                if((spFunc->get_function(&isFunc) == S_OK) && (isFunc == FALSE))
+                {
+                    // Not a function, continue
+                    spFunc.Release();
+                    continue;
+                }
             }
-            
-            spFunc = NULL;
+
+            _AddFuncToList(funcSizes, spFunc, L"");
+            spFunc.Release();
         }
     }
 
@@ -125,42 +131,34 @@ HRESULT CDebugInfoWalker::_EnumerateFunctions()
     return hr;
 }
 
-HRESULT CDebugInfoWalker::_EnumerateFunctions(_In_ wstring const & szFuncNameSubString)
+HRESULT CDebugInfoWalker::_EnumerateFunctions(_In_ wstring const & szFuncNameSubString, bool fPublicOnly)
 {
     CFunctionSizes funcSizes;
 
     CComPtr<IDiaEnumSymbols> spFuncs;
-    HRESULT hr = _GetAllFunctions(&spFuncs);
+
+    HRESULT hr = fPublicOnly ? _GetAllPublicSymbols(&spFuncs) : _GetAllFunctions(&spFuncs);
     if(SUCCEEDED(hr))
     {
         ULONG celt;
         CComPtr<IDiaSymbol> spFunc;
         while(SUCCEEDED(spFuncs->Next(1, &spFunc, &celt)) && (celt == 1))
         {
-            BSTR symName;
-            if(SUCCEEDED(spFunc->get_name(&symName)))
+            // If we are to display only public functions, then check if this
+            // is a function or not.
+            if(fPublicOnly)
             {
-                // Is this a function requested by the user?
-                if(wcsstr(symName, szFuncNameSubString.c_str()) != nullptr)
+                BOOL isFunc;
+                if((spFunc->get_function(&isFunc) == S_OK) && (isFunc == FALSE))
                 {
-                    ULONGLONG ullSize;
-                    if(SUCCEEDED(spFunc->get_length(&ullSize)))
-                    {
-                        funcSizes.addData(symName, ullSize);
-                    }
-                    else
-                    {
-                        logerr(L"Couldn't get size for %s", hr, symName);
-                    }
+                    // Not a function, continue
+                    spFunc.Release();
+                    continue;
                 }
-#ifdef _DEBUG
-                else
-                {
-                    logdbg(L"Skipping: %s", symName);
-                }
-#endif
-                spFunc = NULL;
             }
+
+            _AddFuncToList(funcSizes, spFunc, szFuncNameSubString);
+            spFunc.Release();
         }
     }
 
@@ -175,43 +173,34 @@ HRESULT CDebugInfoWalker::_EnumerateFunctions(_In_ wstring const & szFuncNameSub
 }
 
 // Display only specified functions
-HRESULT CDebugInfoWalker::_EnumerateFunctions(_In_ set<wstring> const & aszFunctions)
+HRESULT CDebugInfoWalker::_EnumerateFunctions(_In_ set<wstring> const & aszFunctions, bool fPublicOnly)
 {
     CFunctionSizes funcSizes;
 
     CComPtr<IDiaEnumSymbols> spFuncs;
-    HRESULT hr = _GetAllFunctions(&spFuncs);
+    
+    HRESULT hr = fPublicOnly ? _GetAllPublicSymbols(&spFuncs) : _GetAllFunctions(&spFuncs);
     if(SUCCEEDED(hr))
     {
         ULONG celt;
         CComPtr<IDiaSymbol> spFunc;
         while(SUCCEEDED(spFuncs->Next(1, &spFunc, &celt)) && (celt == 1))
         {
-            BSTR symName;
-            if(SUCCEEDED(spFunc->get_name(&symName)))
+            // If we are to display only public functions, then check if this
+            // is a function or not.
+            if(fPublicOnly)
             {
-                // Is this a function requested by the user?
-                if(aszFunctions.find(symName) != aszFunctions.end())
+                BOOL isFunc;
+                if((spFunc->get_function(&isFunc) == S_OK) && (isFunc == FALSE))
                 {
-                    ULONGLONG ullSize;
-                    hr = spFunc->get_length(&ullSize);
-                    if(SUCCEEDED(hr))
-                    {
-                        funcSizes.addData(symName, ullSize);
-                    }
-                    else
-                    {
-                        logerr(L"Couldn't get size for %s", hr, symName);
-                    }
+                    // Not a function, continue
+                    spFunc.Release();
+                    continue;
                 }
-#ifdef _DEBUG
-                else
-                {
-                    logdbg(L"Skipping: %s", symName);
-                }
-#endif
-                spFunc = NULL;
             }
+
+            _AddFuncToList(funcSizes, spFunc, aszFunctions);
+            spFunc.Release();
         }
     }
 
@@ -286,7 +275,7 @@ HRESULT CDebugInfoWalker::_GetAllFunctions(_Out_ IDiaEnumSymbols **ppFunctions)
         if(SUCCEEDED(hr))
         {
             LONG nFuncs;
-            if(SUCCEEDED((*ppFunctions)->get_Count(&nFuncs)))
+            if((*ppFunctions)->get_Count(&nFuncs) == S_OK)
             {
                 logdbg(L"Total #functions = %d", nFuncs);
             }
@@ -294,6 +283,114 @@ HRESULT CDebugInfoWalker::_GetAllFunctions(_Out_ IDiaEnumSymbols **ppFunctions)
 #endif
     }
 
+    return hr;
+}
+
+HRESULT CDebugInfoWalker::_GetAllSymbols(_Out_ IDiaEnumSymbols **ppAllSymbols)
+{
+    *ppAllSymbols = nullptr;
+
+    CComPtr<IDiaSymbol> spGlobals;
+    HRESULT hr = _spSession->get_globalScope(&spGlobals);
+    if(SUCCEEDED(hr))
+    {
+        hr = spGlobals->findChildren(SymTagNull, NULL, nsfCaseInsensitive|nsfUndecoratedName, ppAllSymbols);
+#ifdef _DEBUG
+        if(SUCCEEDED(hr))
+        {
+            LONG nSyms;
+            if((*ppAllSymbols)->get_Count(&nSyms) == S_OK)
+            {
+                logdbg(L"Total #symbols = %d", nSyms);
+            }
+        }
+#endif
+    }
+
+    return hr;
+}
+
+HRESULT CDebugInfoWalker::_GetAllPublicSymbols(_Out_ IDiaEnumSymbols **ppAllSymbols)
+{
+    *ppAllSymbols = nullptr;
+
+    CComPtr<IDiaSymbol> spGlobals;
+    HRESULT hr = _spSession->get_globalScope(&spGlobals);
+    if(SUCCEEDED(hr))
+    {
+        hr = spGlobals->findChildren(SymTagPublicSymbol, NULL, nsfCaseInsensitive|nsfUndecoratedName, ppAllSymbols);
+#ifdef _DEBUG
+        if(SUCCEEDED(hr))
+        {
+            LONG nSyms;
+            if((*ppAllSymbols)->get_Count(&nSyms) == S_OK)
+            {
+                logdbg(L"Total #symbols = %d", nSyms);
+            }
+        }
+#endif
+    }
+
+    return hr;
+}
+
+HRESULT CDebugInfoWalker::_AddFuncToList(
+    _In_ CFunctionSizes & funcList, 
+    _In_ IDiaSymbol *pSymbol, 
+    _In_ wstring const & funcNameToMatch)
+{
+    BSTR symName;
+
+    HRESULT hr = pSymbol->get_name(&symName);
+    if(hr == S_OK)
+    {
+        if(!funcNameToMatch.empty() && (wcsstr(symName, funcNameToMatch.c_str()) == nullptr))
+        {
+            // Requested for substring match but no match found
+            logdbg(L"Skipping: %s", symName);
+
+            SysFreeString(symName);
+            return S_FALSE;
+        }
+
+        ULONGLONG ullSize;
+        hr = pSymbol->get_length(&ullSize);
+        if(hr == S_OK)
+        {
+            funcList.addData(symName, ullSize);
+        }
+        SysFreeString(symName);
+    }
+    return hr;
+}
+
+HRESULT CDebugInfoWalker::_AddFuncToList(
+    _In_ CFunctionSizes & funcList, 
+    _In_ IDiaSymbol *pSymbol, 
+    _In_ set<wstring> const & aszFuncNamesToMatch)
+{
+    BSTR symName;
+
+    HRESULT hr = pSymbol->get_name(&symName);
+    if(hr == S_OK)
+    {
+        // Is this a function requested by the user?
+        if(aszFuncNamesToMatch.find(symName) != aszFuncNamesToMatch.end())
+        {
+            ULONGLONG ullSize;
+            if(pSymbol->get_length(&ullSize) == S_OK)
+            {
+                funcList.addData(symName, ullSize);
+            }
+        }
+#ifdef _DEBUG
+        else
+        {
+            logdbg(L"Skipping: %s", symName);
+        }
+#endif
+        SysFreeString(symName);
+    }
     return hr;
 }
 
