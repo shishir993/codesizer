@@ -16,7 +16,7 @@ HRESULT CFunctionSizes::addData(PCWSTR pszFunctionName, ULONGLONG sizeInBytes)
         return E_INVALIDARG;
     }
     
-    _funcSizes.push_back(make_pair<wstring,ULONGLONG>(wstring(pszFunctionName), sizeInBytes));
+    _funcSizes.emplace_back(pszFunctionName, sizeInBytes);
     return S_OK;
 }
 
@@ -34,10 +34,17 @@ void CFunctionSizes::sortData(bool fAscending)
 
 void CFunctionSizes::dumpData()
 {
-    wprintf(L"%-60s %s\n", L"Function Name", L"Size In Bytes");
-    wprintf(L"%-60s %s\n", L"-------------", L"-------------");
-    for each(auto func in _funcSizes)
+    wprintf(L"Function Name,Size In Bytes\n");
+    for (auto& func : _funcSizes)
     {
-        wprintf(L"%-60s %llu\n", func.first.c_str(), func.second);
+        auto& fname = func.first;
+        for (auto& c : fname)
+        {
+            if (c == L',')
+            {
+                c = L';';
+            }
+        }
+        wprintf(L"%s,%llu\n", func.first.c_str(), func.second);
     }
 }
